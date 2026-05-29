@@ -14,22 +14,30 @@ Scorers are split into two tiers:
 
 # Redundant-alias re-exports for the experimental tier — ruff F401-clean
 # without adding them to __all__, which is the public-API contract.
-from p3.scorers.citation import citation_verifiability as citation_verifiability
+from p3.scorers.citation import citation_verifiability
 from p3.scorers.consistency import (
     consistency_across_paraphrases as consistency_across_paraphrases,
 )
 from p3.scorers.fermi import fermi_calibration
 from p3.scorers.ground_truth import ground_truth_match
+from p3.scorers.information_density import information_density
 from p3.scorers.logprob import token_logprob_uncertainty
 from p3.scorers.refusal import appropriate_refusal
+from p3.scorers.response_variance import (
+    response_variance as response_variance,
+)
 from p3.scorers.rubric_judge import rubric_judge
+from p3.scorers.stance_extraction import stance_extraction
 
 __all__ = [
     "ground_truth_match",
     "rubric_judge",
     "appropriate_refusal",
     "fermi_calibration",
+    "information_density",
+    "citation_verifiability",
     "token_logprob_uncertainty",
+    "stance_extraction",
 ]
 
 # Implementations that aren't yet exercised by any eval. Kept importable
@@ -38,5 +46,5 @@ __all__ = [
 # reflect what's actually production-tested.
 EXPERIMENTAL = (
     "consistency_across_paraphrases",
-    "citation_verifiability",
+    "response_variance",
 )

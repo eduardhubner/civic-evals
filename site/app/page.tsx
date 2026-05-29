@@ -2,8 +2,10 @@ import { ScoreMatrix } from "./components/ScoreMatrix";
 import { PersonaChart } from "./components/PersonaChart";
 import { SubScorePanel } from "./components/SubScorePanel";
 import { EvalCards } from "./components/EvalCards";
+import { ModelCards } from "./components/ModelCards";
 import { CalibrationPanel } from "./components/CalibrationPanel";
 import { BaselinePanel } from "./components/BaselinePanel";
+import { BiasPanel } from "./components/BiasPanel";
 import { loadRollup } from "@/lib/rollup";
 
 export default function Home() {
@@ -69,6 +71,16 @@ export default function Home() {
           <EvalCards rollup={rollup} />
         </section>
 
+        {!empty && rollup.providers.length > 0 && (
+          <section className="space-y-4">
+            <SectionHeader
+              title="Models evaluated"
+              hint="Per-model report cards. The reader's trust question — should I rely on this model for civic info? — has model as the unit, not eval."
+            />
+            <ModelCards rollup={rollup} />
+          </section>
+        )}
+
         {empty ? (
           <EmptyState />
         ) : (
@@ -96,6 +108,16 @@ export default function Home() {
               />
               <PersonaChart rollup={rollup} />
             </section>
+
+            {rollup.bias && rollup.bias.length > 0 && (
+              <section className="space-y-4">
+                <SectionHeader
+                  title="Cross-model substantive-policy bias"
+                  hint="Identical school-board candidate profiles, varying only the substantive direction of stated policy positions. Every model in the sample rates the D-typical platform higher than the otherwise-identical R-typical platform; magnitude shown in years of equivalent experience."
+                />
+                <BiasPanel rollup={rollup} />
+              </section>
+            )}
 
             <section className="space-y-4">
               <SectionHeader

@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { FailuresPanel } from "@/app/components/FailuresPanel";
 import { FermiRangeBar } from "@/app/components/FermiRangeBar";
+import { MethodsPanel } from "@/app/components/MethodsPanel";
+import { PersonaDeltaPanel } from "@/app/components/PersonaDeltaPanel";
 import {
   fmt,
   groupBy,
@@ -24,6 +27,11 @@ export default async function EvalPage({ params }: { params: Promise<{ name: str
   const overall = meanBy(evalRows, (r) => r.score);
   const byTask = groupBy(evalRows, (r) => r.task_id);
   const scorers = Array.from(new Set(evalRows.map((r) => r.scorer))).sort();
+  const failures = (rollup.failures ?? []).filter((f) => f.eval === name);
+  const thresholds = rollup.failure_thresholds ?? {};
+  const failureSummary = rollup.failure_summary?.by_eval?.find(
+    (r) => r.eval === name,
+  );
 
   return (
     <main className="flex-1 w-full">
@@ -65,6 +73,37 @@ export default async function EvalPage({ params }: { params: Promise<{ name: str
             </a>
           </div>
         </header>
+
+        <section className="space-y-3">
+          <SectionHeader title="How this is scored" />
+          <MethodsPanel
+            scorers={scorers}
+            hasFailures={failures.length > 0}
+            hasFermi={scorers.includes("fermi_calibration")}
+          />
+        </section>
+
+        <section className="space-y-3">
+          <SectionHeader
+            title="Worth a closer look"
+            hint={`Individual completions whose score fell below the per-difficulty alarm bar (easy < ${fmt(thresholds.easy ?? 0.9)}, medium < ${fmt(thresholds.medium ?? 0.7)}). A high overall mean can still hide confidently-wrong answers — these are them.`}
+          />
+          <FailuresPanel
+            failures={failures}
+            thresholds={thresholds}
+            summary={failureSummary}
+          />
+        </section>
+
+        {meta.track !== "factual" && (
+          <section className="space-y-3">
+            <SectionHeader
+              title="Persona-conditioned variation"
+              hint="Same subdomain (e.g. voter_id), different persona slot. Empty when the eval has only one persona per subdomain. Large |Δ| means the model's score depends on the asker — the headline metric for interpretive-track evals."
+            />
+            <PersonaDeltaPanel rows={evalRows} />
+          </section>
+        )}
 
         <section className="space-y-3">
           <SectionHeader
@@ -221,6 +260,7 @@ function TaskRow({
               <p>
                 <span className="text-zinc-400 dark:text-zinc-500 font-mono mr-2">source:</span>
                 {task.source}
+                <VerifiedBadge date={task.last_verified} />
               </p>
               <PersonaAttrsLine attrs={rows[0]?.persona_attrs ?? null} />
               {rows[0]?.completion && (
@@ -273,6 +313,56 @@ function RefusalBadge({ expected }: { expected: "refuse" | "answer" | "hedge" | 
       title="The behavior the model should exhibit on this task"
     >
       {expected}
+    </span>
+  );
+}
+
+/**
+ * Per-task ground-truth freshness indicator.
+ *
+ * Civic facts drift — election rules amend, statutes change, agency
+ * URLs reorganize. ``last_verified`` is the date a maintainer last
+ * checked the task's ground truth against its source. Three states:
+ *
+ * - **null** (unverified): renders an amber "unverified" pill so the
+ *   reader knows the task hasn't been audited since import.
+ * - **stale** (more than 12 months old): renders a rose "stale (date)"
+ *   pill — the answer might be correct, but it deserves a fresh check.
+ * - **fresh** (within 12 months): renders a quiet emerald "verified
+ *   (date)" pill so the reader can trust the row.
+ *
+ * The threshold is 12 months because most civic-information drift
+ * (annual deadline updates, post-election rule changes, biennial
+ * statute reviews) cycles in that window.
+ */
+function VerifiedBadge({ date }: { date: string | null }) {
+  if (!date) {
+    return (
+      <span
+        className="ml-2 inline-flex items-center rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-mono text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-400"
+        title="No last_verified date set on this task — ground truth hasn't been audited since import."
+      >
+        unverified
+      </span>
+    );
+  }
+  const verifiedAt = new Date(date);
+  const ageDays = (Date.now() - verifiedAt.getTime()) / 86_400_000;
+  const stale = ageDays > 365;
+  const cls = stale
+    ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300"
+    : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-400";
+  const label = stale ? "stale" : "verified";
+  return (
+    <span
+      className={`ml-2 inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-mono ${cls}`}
+      title={
+        stale
+          ? `Last verified ${date} — over 12 months old; deserves a fresh check.`
+          : `Ground truth last verified ${date}.`
+      }
+    >
+      {label} {date}
     </span>
   );
 }
@@ -340,11 +430,13 @@ function CompletionBlock({
   );
 }
 
-function SectionHeader({ title, hint }: { title: string; hint: string }) {
+function SectionHeader({ title, hint }: { title: string; hint?: string }) {
   return (
     <div className="space-y-1">
       <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
-      <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-3xl">{hint}</p>
+      {hint && (
+        <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-3xl">{hint}</p>
+      )}
     </div>
   );
 }
